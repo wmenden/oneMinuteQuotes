@@ -30,14 +30,25 @@ intraDayData <- function(interval = 60, days = 1, symbol = "SPY",
       partial.url = 'http://www.google.com/finance/getprices?i='
       url = paste(partial.url,interval,'&p=', days,
                   'd&f=d,o,h,l,c,v&df=cpct&q=',symbol ,sep="")
+      
       if (extended == TRUE){
+            # running extended during trading day throws error
+            # when days = 1
+            oldDays = days
+            if (days < 2){
+                  days = 2
+            }
             url2 = paste(partial.url,interval,'&sessions=ext_hours&p=', days,
                         'd&f=d,o,h,l,c,v&df=cpct&q=',symbol ,sep="")
+            days = oldDays
       }
       
       if (extended == TRUE){
             data1 = getGoogleData(url= url, interval, extended= FALSE)
             data2 = getGoogleData(url= url2, interval,extended)
+            if (days == 1){
+                  data2 <- data2[-1,]
+            }
             data = rbind(data1,data2)
             data = data[order(data$PERIOD),]
             # Find and remove duplicates s/b 2 per day (8:30 & 15:00)
@@ -90,6 +101,13 @@ getGoogleData <-function(url, interval, extended){
       # Convert columns from factor to numeric
       indx <- sapply(data, is.factor)
       data[indx] <- lapply(data[indx], function(x) as.numeric(as.character(x)))
+      
+      # Following line necessary because GOOG inserts meta data on the first day
+      # after the time change indicating a change in offset from GMT
+      # The following error may appear in console:
+      # In FUN(X[[i]], ...) : NAs introduced by coercion
+      # Ignore it
+      data <- data[complete.cases(data),]
       
       # Convert PERIOD to UNIX time
       data$PERIOD = convertUnixDate(data$PERIOD,interval)
