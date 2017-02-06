@@ -7,8 +7,12 @@ intraDayData <- function(interval = 60, days = 1, symbol = "SPY",
       # divisible by 60
       # if extended is TRUE; will also return extended hours data
       # Returns the date/time close high low open and volume for each period
+      # IMPORTANT - FUNCTION RETURNS A LIST (DF, XTS)
+       
+       
       
       # Converting symbol to upper case
+      require(xts)
       symbol = toupper(symbol)
       
       # Google only has the past 10 days available
@@ -56,8 +60,11 @@ intraDayData <- function(interval = 60, days = 1, symbol = "SPY",
       }else{
             data <- getGoogleData(url, interval, extended)
       }
-
-      return (data)
+      
+      data_xts <- xts(data[,-1], order.by=data[,1])
+      data_list <- list(data = data, data_xts = data_xts)
+      return (data_list)
+      
       
 }
 
@@ -136,3 +143,37 @@ convertUnixDate <- function(dat, interval){
       return(newDat)
 }
 
+# The following function adds indicators of interest to the dataset
+# 
+addIndicators <- function(df){
+      
+      # Adds additional indicators to the data
+      # Specifically: 10, 20 and 50 period MA
+      # 20 period SD
+      # Bollinger bands (using 1.96)
+      # Price change and log diff price
+      # df is expected to be an xts object
+      
+      #Add MA's
+      df$ma10  <- rollapply(df$CLOSE, width = 10,
+                            FUN = mean, na.rm = TRUE)
+      df$ma20  <- rollapply(df$CLOSE, width = 20,
+                            FUN = mean, na.rm = TRUE)
+      df$ma50  <- rollapply(df$CLOSE, width = 50,
+                            FUN = mean, na.rm = TRUE)
+      # Add 20 SD
+      df$sd20  <- rollapply(df$CLOSE, width = 20,
+                            FUN = sd, na.rm = TRUE)
+      # Add Bolinger Bands
+      df$bb1   <- df$ma20 + df$sd20 * -1.96
+      df$bb2   <- df$ma20 + df$sd20 * 1.96
+      # Recalculate change because it is blown up upon xts convert
+      df$Change <- diff(df$CLOSE, lag = 1, differences = 1)
+      # diff log
+      df$log_Change <- diff(log(df$CLOSE), lag = 1, differences = 1)
+      
+     
+      
+      
+      return(df)
+}
